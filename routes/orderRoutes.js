@@ -4,24 +4,31 @@ const Order = require("../models/Order");
 
 router.post("/", async (req, res) => {
   try {
-    const { items, total } = req.body;
+    const incomingItems = req.body.cart || req.body.items;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: "Items are required" });
+    if (!incomingItems || !Array.isArray(incomingItems) || incomingItems.length === 0) {
+      return res.status(400).json({ error: "Cart/items are required" });
     }
 
-    const calculatedTotal = items.reduce((acc, item) => {
-      return acc + item.price * (item.quantity || 1);
+    const normalizedItems = incomingItems.map((item) => ({
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity || item.qty || 1,
+    }));
+
+    const total = normalizedItems.reduce((acc, item) => {
+      return acc + item.price * item.quantity;
     }, 0);
 
     const newOrder = new Order({
-      items,
-      total: total ?? calculatedTotal,
+      items: normalizedItems,
+      total,
     });
 
     await newOrder.save();
 
     res.status(201).json({
+      success: true,
       message: "Order stored in DB successfully",
       order: newOrder,
     });
