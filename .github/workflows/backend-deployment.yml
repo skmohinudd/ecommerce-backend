@@ -13,10 +13,8 @@ on:
       - "package-lock.json"
       - "Dockerfile"
       - ".dockerignore"
-      - "k8s/backend-deployment.yml"
-      - "k8s/backend-service.yml"
-      - "k8s/secret.yml"
-      - "k8s/ingress.yml"
+      - "helm/backend/**"
+      - "ingress.yml"
       - ".github/workflows/backend-deploy.yml"
   workflow_dispatch:
 
@@ -75,24 +73,25 @@ jobs:
             --region $AWS_REGION \
             --name $EKS_CLUSTER_NAME
 
-      - name: Replace image in backend deployment manifest
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          sed -i "s|IMAGE_BACKEND|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" k8s/backend-deployment.yml
-
       - name: Create namespace if missing
         run: |
           kubectl get namespace $K8S_NAMESPACE || kubectl create namespace $K8S_NAMESPACE
 
-      - name: Apply backend secret
+      - name: Deploy backend to EKS with Helm
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          kubectl apply -f k8s/secret.yml
+          helm upgrade --install backend ./helm/backend \
+            --namespace $K8S_NAMESPACE \
+            --create-namespace \
+            --set image.repository=$ECR_REGISTRY/$ECR_REPOSITORY \
+            --set image.tag=$IMAGE_TAG
 
-      - name: Deploy backend to EKS
+      - name: Apply ingress
         run: |
-          kubectl apply -f k8s/backend-deployment.yml
-          kubectl apply -f k8s/backend-service.yml
-          kubectl apply -f k8s/ingress.yml
+          kubectl apply -f ingress.yml
+
+      - name: Verify backend rollout
+        run: |
           kubectl rollout status deployment/backend -n $K8S_NAMESPACE --timeout=180s

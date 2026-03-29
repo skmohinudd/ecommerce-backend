@@ -1,0 +1,17 @@
+replicaCount: 2
+
+image:
+  repository: 077419561607.dkr.ecr.us-east-1.amazonaws.com/backendapp
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 5000
+
+containerPort: 5000
+
+env:
+  PORT: 5000
+  MONGO_URI: mongodb+srv://shaikmohinudin799:Khaja%4095508@shop-project.woqfeg3.mongodb.net/ecommerceDB?retryWrites=true&w=majority
+resources: {}
