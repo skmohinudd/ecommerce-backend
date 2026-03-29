@@ -18,7 +18,7 @@ on:
       - "k8s/secret.yml"
       - "k8s/ingress.yml"
       - ".github/workflows/backend-deploy.yml"
-  
+  workflow_dispatch:
 
 permissions:
   id-token: write
