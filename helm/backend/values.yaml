@@ -12,6 +12,9 @@ service:
 containerPort: 5000
 
 env:
-  PORT: 5000
-  MONGO_URI: mongodb+srv://shaikmohinudin799:Khaja%4095508@shop-project.woqfeg3.mongodb.net/ecommerceDB?retryWrites=true&w=majority
+  PORT: "5000"
+
+secret:
+  mongoUri: "mongodb+srv://shaikmohinudin799:Khaja%4095508@shop-project.woqfeg3.mongodb.net/ecommerceDB?retryWrites=true&w=majority"
+
 resources: {}

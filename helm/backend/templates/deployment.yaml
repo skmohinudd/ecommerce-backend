@@ -22,4 +22,7 @@ spec:
             - name: PORT
               value: {{ .Values.env.PORT | quote }}
             - name: MONGO_URI
-              value: {{ .Values.env.MONGO_URI | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: MONGO_URI
