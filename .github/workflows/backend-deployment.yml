@@ -1,0 +1,98 @@
+name: Backend CI/CD to EKS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "routes/**"
+      - "models/**"
+      - "controllers/**"
+      - "server.js"
+      - "package.json"
+      - "package-lock.json"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "k8s/backend-deployment.yml"
+      - "k8s/backend-service.yml"
+      - "k8s/secret.yml"
+      - "k8s/ingress.yml"
+      - ".github/workflows/backend-deploy.yml"
+  
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: eksdemo1
+  ECR_REPOSITORY: backendapp
+  K8S_NAMESPACE: ecommerce
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.IAM_ROLE_GITHUBACTIONS }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build backend Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            .
+
+      - name: Push backend Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name $EKS_CLUSTER_NAME
+
+      - name: Replace image in backend deployment manifest
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed -i "s|IMAGE_BACKEND|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" k8s/backend-deployment.yml
+
+      - name: Create namespace if missing
+        run: |
+          kubectl get namespace $K8S_NAMESPACE || kubectl create namespace $K8S_NAMESPACE
+
+      - name: Apply backend secret
+        run: |
+          kubectl apply -f k8s/secret.yml
+
+      - name: Deploy backend to EKS
+        run: |
+          kubectl apply -f k8s/backend-deployment.yml
+          kubectl apply -f k8s/backend-service.yml
+          kubectl apply -f k8s/ingress.yml
+          kubectl rollout status deployment/backend -n $K8S_NAMESPACE --timeout=180s
