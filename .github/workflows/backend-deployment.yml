@@ -9,13 +9,14 @@ on:
       - "models/**"
       - "controllers/**"
       - "server.js"
+      - "tracing.js"
       - "package.json"
       - "package-lock.json"
       - "Dockerfile"
       - ".dockerignore"
       - "helm/backend/**"
-      - "ingress.yml"
-      - ".github/workflows/backend-deploy.yml"
+      - "k8s/ingress.yml"
+      - ".github/workflows/backend-deployment.yml"
   workflow_dispatch:
 
 permissions:

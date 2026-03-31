@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 
 const orderRoutes = require("./routes/orderRoutes");
+const productRoutes = require("./routes/productRoutes");
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(
 app.use(express.json());
 
 app.use("/api/orders", orderRoutes);
+app.use("/api/products", productRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
