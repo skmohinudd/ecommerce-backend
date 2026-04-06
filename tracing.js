@@ -3,11 +3,13 @@ const { getNodeAutoInstrumentations } = require("@opentelemetry/auto-instrumenta
 const { OTLPTraceExporter } = require("@opentelemetry/exporter-trace-otlp-http");
 
 const traceExporter = new OTLPTraceExporter({
-  url: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/traces",
+  url:
+    process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+    "http://localhost:4318/v1/traces",
 });
 
 const sdk = new NodeSDK({
-  serviceName: "ecommerce-backend",
+  serviceName: process.env.OTEL_SERVICE_NAME || "ecommerce-backend",
   traceExporter,
   instrumentations: [getNodeAutoInstrumentations()],
 });
@@ -15,6 +17,17 @@ const sdk = new NodeSDK({
 sdk.start();
 
 process.on("SIGTERM", async () => {
+  try {
+    await sdk.shutdown();
+    console.log("OpenTelemetry shut down successfully");
+  } catch (error) {
+    console.error("Error shutting down OpenTelemetry", error);
+  } finally {
+    process.exit(0);
+  }
+});
+
+process.on("SIGINT", async () => {
   try {
     await sdk.shutdown();
     console.log("OpenTelemetry shut down successfully");
