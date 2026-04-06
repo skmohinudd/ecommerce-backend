@@ -4,7 +4,7 @@ metadata:
   name: backend
   namespace: ecommerce
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: backend
@@ -15,24 +15,35 @@ spec:
     spec:
       containers:
         - name: backend
-          image: IMAGE_BACKEND
+          image: 077419561607.dkr.ecr.us-east-1.amazonaws.com/backendapp:a35e2c55b3b5c6cb6629f91b68abfb19e37f27a8
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
+
           env:
             - name: PORT
               value: "5000"
+
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
                   name: backend-secret
                   key: MONGO_URI
+
+            # 🔥 ADD THIS (VERY IMPORTANT)
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/traces"
+
+            - name: OTEL_SERVICE_NAME
+              value: "ecommerce-backend"
+
           readinessProbe:
             httpGet:
               path: /
               port: 5000
             initialDelaySeconds: 10
             periodSeconds: 10
+
           livenessProbe:
             httpGet:
               path: /
