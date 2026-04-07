@@ -20,10 +20,27 @@ router.post("/", async (req, res) => {
     }
 
     const normalizedItems = incomingItems.map((item) => ({
-      name: item.title,
-      price: item.price,
-      quantity: item.quantity || item.qty || 1,
+      name: item.name || item.title,
+      price: Number(item.price),
+      quantity: Number(item.quantity || item.qty || 1),
     }));
+
+    const invalidItem = normalizedItems.find(
+      (item) =>
+        !item.name ||
+        Number.isNaN(item.price) ||
+        Number.isNaN(item.quantity)
+    );
+
+    if (invalidItem) {
+      logInfo("Order item validation failed", {
+        invalid_item: invalidItem,
+      });
+
+      return res.status(400).json({
+        error: "Invalid item data in cart",
+      });
+    }
 
     const total = normalizedItems.reduce((acc, item) => {
       return acc + item.price * item.quantity;
