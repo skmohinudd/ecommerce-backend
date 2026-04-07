@@ -92,6 +92,7 @@ jobs:
       - name: Apply ingress
         run: |
           kubectl apply -f ./k8s/ingress.yml
+          kubectl apply -f ./mongodb/k8s/
 
       - name: Verify backend rollout
         run: |
