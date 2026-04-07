@@ -17,6 +17,10 @@ spec:
       containers:
         - name: mongodb
           image: mongo:7.0
+          command:
+            - mongod
+            - "--auth"
+            - --bind_ip_all
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 27017
