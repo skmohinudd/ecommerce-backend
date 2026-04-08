@@ -10,15 +10,15 @@ on:
       - "models/**"
       - "controllers/**"
       - "server.js"
-      - "tracing.js"
+      - "logger.js"
       - "package.json"
-      - "mongodb/k8s/**"
       - "package-lock.json"
       - "Dockerfile"
       - ".dockerignore"
+      - "mongodb/k8s/**"
       - "helm/backend/**"
-      - "k8s/ingress.yml"
-      - ".github/workflows/backend-deployment.yml"
+      - "k8s/**"
+      - ".github/workflows/backend-deployment.yaml"
   workflow_dispatch:
 
 permissions:
@@ -91,9 +91,9 @@ jobs:
             --set image.repository=$ECR_REGISTRY/$ECR_REPOSITORY \
             --set image.tag=$IMAGE_TAG
 
-      - name: Apply ingress
+      - name: Apply ingress and MongoDB manifests
         run: |
-          kubectl apply -f ./k8s/ingress.yml
+          kubectl apply -f ./k8s/
           kubectl apply -f ./mongodb/k8s/
 
       - name: Verify backend rollout
