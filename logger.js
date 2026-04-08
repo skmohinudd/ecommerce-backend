@@ -1,9 +1,7 @@
 const pino = require("pino");
 const crypto = require("crypto");
-const { context, trace } = require("@opentelemetry/api");
 
 const SERVICE_NAME =
-  process.env.OTEL_SERVICE_NAME ||
   process.env.SERVICE_NAME ||
   "ecommerce-backend";
 
@@ -19,26 +17,6 @@ const logger = pino({
     node_name: process.env.NODE_NAME || null,
   },
 });
-
-function getTraceFields() {
-  const activeSpan = trace.getSpan(context.active());
-
-  if (!activeSpan) {
-    return {
-      trace_id: null,
-      span_id: null,
-      trace_flags: null,
-    };
-  }
-
-  const spanContext = activeSpan.spanContext();
-
-  return {
-    trace_id: spanContext.traceId,
-    span_id: spanContext.spanId,
-    trace_flags: spanContext.traceFlags.toString(16).padStart(2, "0"),
-  };
-}
 
 function generateRequestId() {
   return crypto.randomUUID();
@@ -127,29 +105,16 @@ function maskMongoUri(uri = "") {
 }
 
 function logInfo(message, extra = {}) {
-  logger.info(
-    {
-      ...getTraceFields(),
-      ...extra,
-    },
-    message
-  );
+  logger.info(extra, message);
 }
 
 function logWarn(message, extra = {}) {
-  logger.warn(
-    {
-      ...getTraceFields(),
-      ...extra,
-    },
-    message
-  );
+  logger.warn(extra, message);
 }
 
 function logError(message, error = null, extra = {}) {
   logger.error(
     {
-      ...getTraceFields(),
       error_name: error?.name || null,
       error_message: error?.message || null,
       error_stack: error?.stack || null,
@@ -162,7 +127,6 @@ function logError(message, error = null, extra = {}) {
 module.exports = {
   logger,
   generateRequestId,
-  getTraceFields,
   getRequestLogFields,
   sanitizeHeaders,
   getResponseClass,
