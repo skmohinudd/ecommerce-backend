@@ -1,7 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const Order = require("../models/Order");
-const { logInfo, logWarn, logError, getRequestLogFields } = require("../logger");
+const {
+  logInfo,
+  logWarn,
+  logError,
+  getRequestLogFields,
+  summarizeCart,
+} = require("../logger");
 
 function normalizeItems(rawItems = []) {
   return rawItems.map((item) => ({
@@ -19,7 +25,7 @@ router.post("/", async (req, res) => {
     logInfo("Order create request received", {
       ...requestFields,
       event: "order_create_requested",
-      item_count: Array.isArray(incomingItems) ? incomingItems.length : 0,
+      ...summarizeCart(incomingItems),
     });
 
     if (!incomingItems || !Array.isArray(incomingItems) || incomingItems.length === 0) {
@@ -34,32 +40,51 @@ router.post("/", async (req, res) => {
 
     const normalizedItems = normalizeItems(incomingItems);
 
-    const invalidItem = normalizedItems.find(
-      (item) => !item.name || Number.isNaN(item.price) || Number.isNaN(item.quantity)
+    const invalidIndex = normalizedItems.findIndex(
+      (item) =>
+        !item.name ||
+        Number.isNaN(item.price) ||
+        Number.isNaN(item.quantity) ||
+        item.quantity <= 0 ||
+        item.price < 0
     );
 
-    if (invalidItem) {
+    if (invalidIndex !== -1) {
       logWarn("Order item validation failed", {
         ...requestFields,
         event: "order_item_validation_failed",
-        invalid_item: invalidItem,
+        invalid_item_index: invalidIndex,
+        invalid_item: normalizedItems[invalidIndex],
+        reason: "Item contains invalid name, price, or quantity",
       });
 
       return res.status(400).json({ error: "Invalid item data in cart" });
     }
 
-    const total = normalizedItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    const total = normalizedItems.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0
+    );
 
     logInfo("Order normalized successfully", {
       ...requestFields,
       event: "order_normalized",
-      item_count: normalizedItems.length,
+      ...summarizeCart(normalizedItems),
       total,
     });
 
     const newOrder = new Order({
       items: normalizedItems,
       total,
+    });
+
+    logInfo("Order persistence started", {
+      ...requestFields,
+      event: "order_persist_started",
+      ...summarizeCart(normalizedItems),
+      total,
+      db_operation: "mongodb_insert_order",
+      db_collection: "orders",
     });
 
     const saveStart = Date.now();
@@ -69,9 +94,11 @@ router.post("/", async (req, res) => {
       ...requestFields,
       event: "order_saved",
       order_id: newOrder._id.toString(),
-      item_count: normalizedItems.length,
+      created_at: newOrder.createdAt,
+      ...summarizeCart(normalizedItems),
       total,
       db_operation: "mongodb_insert_order",
+      db_collection: "orders",
       db_duration_ms: Date.now() - saveStart,
     });
 
@@ -84,7 +111,9 @@ router.post("/", async (req, res) => {
     logError("Order save failed", err, {
       ...requestFields,
       event: "order_save_failed",
-      item_count: Array.isArray(incomingItems) ? incomingItems.length : 0,
+      ...summarizeCart(incomingItems),
+      db_operation: "mongodb_insert_order",
+      db_collection: "orders",
     });
 
     res.status(500).json({ error: "Failed to save order" });
@@ -107,7 +136,9 @@ router.get("/", async (req, res) => {
       ...requestFields,
       event: "orders_fetched",
       order_count: orders.length,
+      result_state: orders.length === 0 ? "empty" : "data_found",
       db_operation: "mongodb_find_orders",
+      db_collection: "orders",
       db_duration_ms: Date.now() - queryStart,
     });
 
@@ -116,6 +147,8 @@ router.get("/", async (req, res) => {
     logError("Fetch orders failed", err, {
       ...requestFields,
       event: "orders_fetch_failed",
+      db_operation: "mongodb_find_orders",
+      db_collection: "orders",
     });
 
     res.status(500).json({ error: "Failed to fetch orders" });

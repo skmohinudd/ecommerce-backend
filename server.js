@@ -12,16 +12,20 @@ const {
   generateRequestId,
   getRequestLogFields,
   sanitizeHeaders,
+  getResponseClass,
+  maskMongoUri,
 } = require("./logger");
 
 const app = express();
 app.set("trust proxy", true);
 
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((item) => item.trim())
+  : ["http://localhost:3000", "http://localhost:3001"];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN
-      ? process.env.CORS_ORIGIN.split(",")
-      : ["http://localhost:3000", "http://localhost:3001"],
+    origin: allowedOrigins,
   })
 );
 
@@ -51,12 +55,16 @@ app.use((req, res, next) => {
   );
 
   res.on("finish", () => {
+    const duration = Date.now() - startTime;
+
     logInfo(
       "HTTP request completed",
       getRequestLogFields(req, {
         event: "http_request_completed",
         http_status_code: res.statusCode,
-        duration_ms: Date.now() - startTime,
+        response_class: getResponseClass(res.statusCode),
+        duration_ms: duration,
+        slow_request: duration > 1000,
         response_content_length: res.getHeader("content-length") || null,
       })
     );
@@ -124,22 +132,72 @@ mongoose.connection.on("disconnected", () => {
   });
 });
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    const port = process.env.PORT || 5000;
+const mongoUri = process.env.MONGO_URI;
+const port = process.env.PORT || 5000;
 
-    app.listen(port, () => {
+logInfo("Application boot configuration", {
+  event: "application_boot_config",
+  port,
+  node_env: process.env.NODE_ENV || "development",
+  cors_origins: allowedOrigins,
+  mongo_uri_masked: maskMongoUri(mongoUri),
+  products_api_url:
+    process.env.PRODUCTS_API_URL || "https://api.escuelajs.co/api/v1/products",
+});
+
+mongoose
+  .connect(mongoUri)
+  .then(() => {
+    const server = app.listen(port, () => {
       logInfo("Server started successfully", {
         event: "server_started",
         port,
         node_env: process.env.NODE_ENV || "development",
       });
     });
+
+    const gracefulShutdown = async (signal) => {
+      try {
+        logWarn("Shutdown signal received", {
+          event: "shutdown_signal_received",
+          signal,
+        });
+
+        server.close(async () => {
+          try {
+            logInfo("HTTP server closed", {
+              event: "http_server_closed",
+            });
+
+            await mongoose.connection.close();
+
+            logInfo("Graceful shutdown completed", {
+              event: "graceful_shutdown_completed",
+            });
+
+            process.exit(0);
+          } catch (err) {
+            logError("Graceful shutdown failed while closing MongoDB", err, {
+              event: "graceful_shutdown_failed",
+            });
+            process.exit(1);
+          }
+        });
+      } catch (err) {
+        logError("Graceful shutdown failed", err, {
+          event: "graceful_shutdown_failed",
+        });
+        process.exit(1);
+      }
+    };
+
+    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
   })
   .catch((err) => {
     logError("MongoDB connection failed during startup", err, {
       event: "mongodb_startup_connection_failed",
+      mongo_uri_masked: maskMongoUri(mongoUri),
     });
     process.exit(1);
   });
