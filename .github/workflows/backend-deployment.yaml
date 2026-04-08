@@ -93,7 +93,6 @@ jobs:
 
       - name: Apply backend Kubernetes manifests
         run: |
-          kubectl apply -f ./k8s/backend-deployment.yml
           kubectl apply -f ./k8s/backend-service.yml
           kubectl apply -f ./k8s/ingress.yml
           kubectl apply -f ./k8s/namespace.yml
