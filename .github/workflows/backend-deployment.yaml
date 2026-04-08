@@ -91,9 +91,13 @@ jobs:
             --set image.repository=$ECR_REGISTRY/$ECR_REPOSITORY \
             --set image.tag=$IMAGE_TAG
 
-      - name: Apply ingress and MongoDB manifests
+      - name: Apply backend Kubernetes manifests
         run: |
-          kubectl apply -f ./k8s/
+          kubectl apply -f ./k8s/backend-deployment.yml
+          kubectl apply -f ./k8s/backend-service.yml
+          kubectl apply -f ./k8s/ingress.yml
+          kubectl apply -f ./k8s/namespace.yml
+          kubectl apply -f ./k8s/secret.yml
           kubectl apply -f ./mongodb/k8s/
 
       - name: Verify backend rollout
