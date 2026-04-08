@@ -40,6 +40,13 @@ router.post("/", async (req, res) => {
 
     const normalizedItems = normalizeItems(incomingItems);
 
+    logInfo("Order payload debug", {
+      ...requestFields,
+      event: "order_payload_debug",
+      incoming_items: incomingItems,
+      normalized_items: normalizedItems,
+    });
+
     const invalidIndex = normalizedItems.findIndex(
       (item) =>
         !item.name ||
