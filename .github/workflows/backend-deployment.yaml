@@ -3,7 +3,7 @@ name: Backend CI/CD to EKS
 on:
   push:
     branches:
-      - main
+      - master
     paths:
       - "routes/**"
       - "models/**"
