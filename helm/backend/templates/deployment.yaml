@@ -5,24 +5,28 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: backend
+
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: backend
+
   template:
     metadata:
       labels:
         app: backend
       {{- if .Values.otel.enabled }}
       annotations:
-        instrumentation.opentelemetry.io/inject-nodejs: "false"
+        instrumentation.opentelemetry.io/inject-nodejs: "true"
       {{- end }}
+
     spec:
       containers:
         - name: backend
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+
           ports:
             - containerPort: {{ .Values.containerPort }}
 
@@ -54,7 +58,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-        
 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
