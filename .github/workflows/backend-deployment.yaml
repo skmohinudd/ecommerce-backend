@@ -29,7 +29,7 @@ env:
   EKS_CLUSTER_NAME: eksdemo1
   ECR_REPOSITORY: backendapp
   K8S_NAMESPACE: ecommerce
-  OTEL_ENABLED: "true"
+  OTEL_ENABLED: true
 
 jobs:
   build-and-deploy:
