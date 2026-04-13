@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backend
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -11,6 +14,10 @@ spec:
     metadata:
       labels:
         app: backend
+      {{- if .Values.otel.enabled }}
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "false"
+      {{- end }}
     spec:
       containers:
         - name: backend
@@ -18,11 +25,36 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.containerPort }}
+
           env:
             - name: PORT
               value: {{ .Values.env.PORT | quote }}
+
+            - name: NODE_ENV
+              value: {{ .Values.env.NODE_ENV | quote }}
+
+            - name: LOG_LEVEL
+              value: {{ .Values.env.LOG_LEVEL | quote }}
+
+            - name: APP_VERSION
+              value: {{ .Values.image.tag | quote }}
+
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
                   name: backend-secret
                   key: MONGO_URI
+
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+        
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
