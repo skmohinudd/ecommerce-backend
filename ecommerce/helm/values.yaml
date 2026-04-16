@@ -1,0 +1,52 @@
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: 077419561607.dkr.ecr.us-east-1.amazonaws.com/frontendapp
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+  containerPort: 80
+  otel:
+    enabled: false
+    annotations: {}
+
+backend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: 077419561607.dkr.ecr.us-east-1.amazonaws.com/backendapp
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 5000
+  containerPort: 5000
+  env:
+    PORT: "5000"
+    NODE_ENV: "production"
+    LOG_LEVEL: "info"
+    SERVICE_NAME: "ecommerce-backend"
+    CORS_ORIGIN: "*"
+  secret:
+    mongoUri: mongodb://admin:Admin%4012345@mongodb-client.ecommerce.svc.cluster.local:27017/admin?authSource=admin
+  otel:
+    enabled: true
+    annotations:
+      instrumentation.opentelemetry.io/inject-nodejs: "true"
+  resources: {}
+
+ingress:
+  enabled: true
+  name: ecommerce-ingress
+  className: alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+  frontendPath: /
+  backendPath: /api

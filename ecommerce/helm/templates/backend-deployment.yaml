@@ -1,0 +1,62 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+      {{- if .Values.backend.otel.enabled }}
+      annotations:
+        {{- toYaml .Values.backend.otel.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.backend.containerPort }}
+          env:
+            - name: PORT
+              value: {{ .Values.backend.env.PORT | quote }}
+            - name: NODE_ENV
+              value: {{ .Values.backend.env.NODE_ENV | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.backend.env.LOG_LEVEL | quote }}
+            - name: SERVICE_NAME
+              value: {{ .Values.backend.env.SERVICE_NAME | quote }}
+            - name: CORS_ORIGIN
+              value: {{ .Values.backend.env.CORS_ORIGIN | quote }}
+            - name: APP_VERSION
+              value: {{ .Values.backend.image.tag | quote }}
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: MONGO_URI
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          {{- if .Values.backend.resources }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          {{- end }}
+{{- end }}
