@@ -70,7 +70,7 @@ jobs:
 
       - name: Helm lint
         run: |
-          helm lint ./ecommerce/helm/Chart.yaml
+          helm lint ./ecommerce/helm
 
       - name: Deploy backend with Helm
         env:
