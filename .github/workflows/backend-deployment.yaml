@@ -77,7 +77,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          helm upgrade --install backend ./helm \
+          helm upgrade --install backend ./ecommerce/helm \
             --namespace "$K8S_NAMESPACE" \
             --create-namespace \
             --set backend.image.repository="$ECR_REGISTRY/$ECR_REPOSITORY" \
