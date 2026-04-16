@@ -16,7 +16,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "mongodb/k8s/**"
-      - "helm/backend/**"
+      - "helm/**"
       - ".github/workflows/backend-deployment.yaml"
   workflow_dispatch:
 
@@ -29,7 +29,7 @@ env:
   EKS_CLUSTER_NAME: eksdemo1
   ECR_REPOSITORY: backendapp
   K8S_NAMESPACE: ecommerce
-  OTEL_ENABLED: true
+  OTEL_ENABLED: "true"
 
 jobs:
   build-and-deploy:
@@ -55,35 +55,35 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
             .
 
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --region $AWS_REGION \
-            --name $EKS_CLUSTER_NAME
+            --region "$AWS_REGION" \
+            --name "$EKS_CLUSTER_NAME"
 
-      - name: Ensure namespace exists
+      - name: Helm lint
         run: |
-          kubectl get namespace $K8S_NAMESPACE || kubectl create namespace $K8S_NAMESPACE
+          helm lint ./helm
 
       - name: Deploy backend with Helm
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          helm upgrade --install backend ./helm/backend \
-            --namespace $K8S_NAMESPACE \
+          helm upgrade --install backend ./helm \
+            --namespace "$K8S_NAMESPACE" \
             --create-namespace \
-            --set image.repository=$ECR_REGISTRY/$ECR_REPOSITORY \
-            --set image.tag=$IMAGE_TAG \
-            --set otel.enabled=$OTEL_ENABLED
+            --set backend.image.repository="$ECR_REGISTRY/$ECR_REPOSITORY" \
+            --set backend.image.tag="$IMAGE_TAG" \
+            --set backend.otel.enabled="$OTEL_ENABLED"
 
       - name: Verify rollout
         run: |
-          kubectl rollout status deployment/backend -n $K8S_NAMESPACE --timeout=180s
+          kubectl rollout status deployment/backend -n "$K8S_NAMESPACE" --timeout=180s
